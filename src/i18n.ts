@@ -1,0 +1,38 @@
+export type Language = 'ru' | 'uz'
+
+export const strings = {
+  ru: {
+    eyebrow: 'ВАША СМЕНА', title: 'Доброе утро,', fakeName: 'Жасур', today: 'Сегодня', tomorrow: 'Завтра',
+    bookings: 'записи', discount: 'со скидкой', revenue: 'выручка', schedule: 'Расписание',
+    emptyTitle: 'Пока тихо', emptyText: 'Новые записи появятся здесь автоматически.', badge: 'ДЕМО · MOCK РЕЖИМ',
+    authTitle: 'Доступ для мастеров', authText: 'Откройте приложение через бота SavdoAI, чтобы увидеть своё расписание.',
+    errorTitle: 'Не удалось подключиться', errorText: 'Проверьте соединение и попробуйте ещё раз.', retry: 'Попробовать снова',
+    all: 'Все мастера', discounted: 'со скидкой', expected: 'Ожидаемая выручка', now: 'СЕЙЧАС',
+    free: 'Свободно', block: '+ блок', lunch: 'Обед', blocked: 'Перерыв', client: 'Клиент', barber: 'Мастер', price: 'Стоимость', confirmed: 'Подтверждено',
+    back: 'Назад', chooseDate: 'Выбрать дату',
+    blockTitle: 'Заблокировать это время?', duration: 'Длительность', noteLabel: 'Заметка', notePlaceholder: 'Например, перерыв',
+    quickLunch: 'Обед', walkin: 'Клиент без записи', shortBreak: 'Перерыв', saveBlock: 'Заблокировать время', unblock: 'Снять блокировку',
+    cancelBooking: 'Отменить запись', cancelConfirm: 'Точно отменить эту запись?', confirmCancel: 'Да, отменить', keepBooking: 'Оставить запись',
+    details: 'Детали записи', created: 'Создана', telegramId: 'Telegram ID', call: 'Позвонить клиенту',
+    conflict: 'Это время уже заняли. Расписание обновлено.', validation: 'Проверьте введённые данные.', serverError: 'Сервис временно недоступен.',
+    actionError: 'Не получилось выполнить действие. Расписание обновлено.', blockedSuccess: 'Время заблокировано', unblockedSuccess: 'Блокировка снята', cancelledSuccess: 'Запись отменена',
+    newBooking: 'Новая запись', noPhone: 'Телефон не указан',
+  },
+  uz: {
+    eyebrow: 'SIZNING SMENANGIZ', title: 'Xayrli tong,', fakeName: 'Jasur', today: 'Bugun', tomorrow: 'Ertaga',
+    bookings: 'yozuv', discount: 'chegirma bilan', revenue: 'tushum', schedule: 'Jadval',
+    emptyTitle: 'Hozircha tinch', emptyText: 'Yangi yozuvlar bu yerda avtomatik ko‘rinadi.', badge: 'DEMO · MOCK REJIMI',
+    authTitle: 'Sartaroshlar uchun', authText: 'Jadvalingizni ko‘rish uchun SavdoAI botidan oching.',
+    errorTitle: 'Ulanib bo‘lmadi', errorText: 'Internetni tekshirib, qayta urinib ko‘ring.', retry: 'Qayta urinish',
+    all: 'Barcha ustalar', discounted: 'chegirma bilan', expected: 'Kutilayotgan tushum', now: 'HOZIR',
+    free: 'Bo‘sh', block: '+ band qilish', lunch: 'Tushlik', blocked: 'Tanaffus', client: 'Mijoz', barber: 'Usta', price: 'Narxi', confirmed: 'Tasdiqlangan',
+    back: 'Orqaga', chooseDate: 'Sanani tanlash',
+    blockTitle: 'Bu vaqtni band qilasizmi?', duration: 'Davomiyligi', noteLabel: 'Izoh', notePlaceholder: 'Masalan, tanaffus',
+    quickLunch: 'Tushlik', walkin: 'Navbatsiz mijoz', shortBreak: 'Tanaffus', saveBlock: 'Vaqtni band qilish', unblock: 'Bandlikni olib tashlash',
+    cancelBooking: 'Yozuvni bekor qilish', cancelConfirm: 'Bu yozuvni bekor qilmoqchimisiz?', confirmCancel: 'Ha, bekor qilish', keepBooking: 'Yozuv qolsin',
+    details: 'Yozuv tafsilotlari', created: 'Yaratilgan', telegramId: 'Telegram ID', call: 'Mijozga qo‘ng‘iroq',
+    conflict: 'Bu vaqt band qilindi. Jadval yangilandi.', validation: 'Kiritilgan ma’lumotlarni tekshiring.', serverError: 'Xizmat vaqtincha ishlamayapti.',
+    actionError: 'Amalni bajarib bo‘lmadi. Jadval yangilandi.', blockedSuccess: 'Vaqt band qilindi', unblockedSuccess: 'Bandlik olib tashlandi', cancelledSuccess: 'Yozuv bekor qilindi',
+    newBooking: 'Yangi yozuv', noPhone: 'Telefon raqami kiritilmagan',
+  },
+} satisfies Record<Language, Record<string, string>>
