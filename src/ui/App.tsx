@@ -80,10 +80,11 @@ function updateDayBooking(day: DayOverviewDto | null, barberId: number, replacem
         ? { ...item, status: nextStatus }
         : item)
       const aggregateStatus = free.size ? 'FREE' as const : barberStatuses?.find((item) => item.status !== 'FREE')?.status ?? nextStatus
+      const remainingBooking = slot.booking?.id === previous?.id ? null : slot.booking
       return {
         ...slot,
         status: barberStatuses ? aggregateStatus : nextStatus,
-        booking: barberStatuses ? (aggregateStatus === 'FREE' ? null : activeReplacement ?? slot.booking) : activeReplacement,
+        booking: barberStatuses ? (aggregateStatus === 'FREE' ? null : activeReplacement ?? remainingBooking) : activeReplacement,
         freeBarberIds: [...free],
         ...(barberStatuses ? { barberStatuses } : {}),
       }
@@ -385,7 +386,7 @@ export default function App() {
         <button className="primary-action" disabled={actionBusy || blockTargetId === null} onClick={() => void submitBlock()}>{actionBusy ? '…' : t.saveBlock}</button>
       </>}
       {sheet.kind === 'unblock' && <><p className="overline">{bookingTime(sheet.booking)}</p><h2>{t.unblock}</h2><p className="sheet-copy">{sheet.booking.note || t.blocked}{sheet.booking.barber ? ` · ${sheet.booking.barber.name}` : ''}</p><button className="primary-action" disabled={actionBusy} onClick={() => void submitUnblock()}>{actionBusy ? '…' : t.unblock}</button></>}
-      {sheet.kind === 'details' && <><p className="overline">{t.details}</p><h2>{lang === 'ru' ? sheet.booking.service?.nameRu : sheet.booking.service?.nameUz}</h2><div className="details-list"><Detail label={t.client} value={sheet.booking.clientName || '—'} /><Detail label={t.price} value={formatMoney(sheet.booking.finalPrice, lang)} /><Detail label={t.discount} value={`${sheet.booking.discountPercent}%`} /><Detail label={t.barber} value={sheet.booking.barber?.[lang === 'ru' ? 'nameRu' : 'nameUz'] ?? sheet.booking.barber?.name ?? '—'} /><Detail label={lang === 'ru' ? 'Время' : 'Vaqt'} value={bookingTime(sheet.booking)} />{sheet.booking.clientTelegramId && <Detail label={t.telegramId} value={sheet.booking.clientTelegramId} />}{sheet.booking.note && <Detail label={t.noteLabel} value={sheet.booking.note} />}{sheet.booking.clientConfirmedAt && <Detail label={t.confirmed} value={formatTashkentTime(sheet.booking.clientConfirmedAt)} />}</div>
+      {sheet.kind === 'details' && <><p className="overline">{t.details}</p><h2>{lang === 'ru' ? sheet.booking.service?.nameRu : sheet.booking.service?.nameUz}</h2><div className="details-list"><Detail label={t.client} value={sheet.booking.clientName || '—'} /><Detail label={t.price} value={formatMoney(sheet.booking.finalPrice, lang)} /><Detail label={t.discount} value={`${sheet.booking.discountPercent}%`} /><Detail label={t.barber} value={sheet.booking.barber?.[lang === 'ru' ? 'nameRu' : 'nameUz'] ?? sheet.booking.barber?.name ?? '—'} /><Detail label={lang === 'ru' ? 'Время' : 'Vaqt'} value={bookingTime(sheet.booking)} />{sheet.booking.createdAt && <Detail label={t.created} value={new Intl.DateTimeFormat(lang === 'ru' ? 'ru-RU' : 'uz-UZ', { timeZone: zone, dateStyle: 'medium', timeStyle: 'short' }).format(new Date(sheet.booking.createdAt))} />}{sheet.booking.clientTelegramId && <Detail label={t.telegramId} value={sheet.booking.clientTelegramId} />}{sheet.booking.note && <Detail label={t.noteLabel} value={sheet.booking.note} />}{sheet.booking.clientConfirmedAt && <Detail label={t.confirmed} value={formatTashkentTime(sheet.booking.clientConfirmedAt)} />}</div>
         {sheet.booking.clientPhone ? <a className="call-action" href={`tel:${sheet.booking.clientPhone}`}><Phone size={16} />{t.call}</a> : <p className="sheet-copy">{t.noPhone}</p>}
         {confirmCancel ? <div className="confirm-box"><p>{t.cancelConfirm}</p><button className="danger-action" disabled={actionBusy} onClick={() => void submitCancel()}>{actionBusy ? '…' : t.confirmCancel}</button><button className="secondary-action" onClick={() => setConfirmCancel(false)}>{t.keepBooking}</button></div> : <button className="danger-action" disabled={actionBusy} onClick={() => setConfirmCancel(true)}>{t.cancelBooking}</button>}
       </>}

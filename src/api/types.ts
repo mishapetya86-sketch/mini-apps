@@ -65,6 +65,7 @@ export interface SlotBookingDto {
   clientLang?: 'uz' | 'ru' | null
   reminderSentAt?: string | null
   clientConfirmedAt?: string | null
+  createdAt?: string
 }
 
 export interface SlotOfferDto {

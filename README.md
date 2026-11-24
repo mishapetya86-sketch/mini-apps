@@ -25,6 +25,10 @@ For a live app, set `VITE_API_BASE_URL` to the backend URL ending in `/api/v1`; 
 
 Run `pnpm test` for money/time formatting, repeated-slot merging, and new-booking diff coverage. Run `pnpm build` to typecheck and create the production bundle in `dist`.
 
+### Manual verification
+
+In mock mode, block a free slot with each duration, then unblock it; open a confirmed card, check its phone link, and cancel it through the confirmation step. To verify polling and haptics, open the live Mini App in Telegram and create a client booking in the bot; it should appear on the next poll, highlight briefly, and show a toast.
+
 ## Telegram preview and deployment
 
 Telegram Mini Apps require HTTPS. Preview through a Vercel preview deployment or an HTTPS tunnel such as cloudflared/ngrok. Deploy this Vite app to Vercel with build command `pnpm build` and output directory `dist`; `vercel.json` includes the SPA rewrite.
