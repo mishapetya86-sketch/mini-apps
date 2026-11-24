@@ -33,6 +33,8 @@ In mock mode, block a free slot with each duration, then unblock it; open a conf
 
 Telegram Mini Apps require HTTPS. Preview through a Vercel preview deployment or an HTTPS tunnel such as cloudflared/ngrok. Deploy this Vite app to Vercel with build command `pnpm build` and output directory `dist`; `vercel.json` includes the SPA rewrite.
 
+In Vercel, import the frontend Git repository with project root `.` and Vite framework preset. Set the Production environment variable `VITE_API_BASE_URL` to the Railway API URL ending in `/api/v1`, then deploy. Do not set `VITE_DEV_ADMIN_KEY` or enable `VITE_MOCK` in Vercel. Vite variables are embedded at build time, so redeploy after changing them.
+
 After deploy:
 
 1. Set the Vercel URL in the backend Railway variables `CORS_ORIGINS` and `MINI_APP_URL`, then redeploy the backend. Its `main.ts` already permits `x-telegram-init-data` in CORS `allowedHeaders`.
