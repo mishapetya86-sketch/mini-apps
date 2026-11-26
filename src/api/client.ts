@@ -1,6 +1,6 @@
 import { initData } from '../lib/telegram'
 import type {
-  ApiErrorBody, BarberDto, BlockResponse, BlockSlotRequest, CancelResponse,
+  ApiErrorBody, BarberDto, BlockResponse, BlockSlotRequest, CancelResponse, HttpErrorBody,
   DayOverviewDto, ServiceDto, SlotsQuery, UnblockResponse,
 } from './types'
 
@@ -15,14 +15,33 @@ const base = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers)
-  headers.set('Content-Type', 'application/json')
+  if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
   const data = initData()
   if (data) headers.set('x-telegram-init-data', data)
   if (import.meta.env.DEV && import.meta.env.VITE_DEV_ADMIN_KEY) headers.set('x-admin-key', import.meta.env.VITE_DEV_ADMIN_KEY)
-  const response = await fetch(`${base}${path}`, { ...init, headers })
-  const payload: unknown = await response.json().catch(() => ({}))
-  if (!response.ok) throw new ApiError(response.status, payload as ApiErrorBody)
-  return payload as T
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 20_000)
+  try {
+    const response = await fetch(`${base}${path}`, {
+      ...init,
+      headers,
+      signal: init.signal ?? controller.signal,
+    })
+    const payload: unknown = await response.json().catch(() => ({}))
+    if (!response.ok) throw new ApiError(response.status, payload as ApiErrorBody)
+    return payload as T
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new ApiError(408, {
+        statusCode: 408,
+        error: 'Request Timeout',
+        message: 'The server did not respond in time.',
+      } satisfies HttpErrorBody)
+    }
+    throw error
+  } finally {
+    window.clearTimeout(timeout)
+  }
 }
 
 export const api = {

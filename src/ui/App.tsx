@@ -113,11 +113,13 @@ export default function App() {
   const [highlightedBookings, setHighlightedBookings] = useState<Set<number>>(new Set())
   const now = useMinuteClock()
   const nowRow = useRef<HTMLDivElement>(null)
+  const dialogRef = useRef<HTMLElement | null>(null)
   const pollingRef = useRef(false)
   const actionBusyRef = useRef(false)
   const previousBookingsRef = useRef<{ date: string; ids: Set<number> } | null>(null)
   const toastTimerRef = useRef<number | null>(null)
   const highlightTimerRef = useRef<number | null>(null)
+  const snapshotVersionRef = useRef(0)
   const t = strings[lang]
   const today = tashkentDate(now)
   const isToday = date === today
@@ -131,8 +133,11 @@ export default function App() {
 
   const fetchSnapshot = useCallback(async (): Promise<ScheduleSnapshot> => {
     if (mockEnabled) {
-      const mock = mockDay(date, 1)
-      return { overview: mock, barbers: mockBarbers, isOwner: false, masterDays: { 1: mock } }
+      const overview = mockDay(date)
+      const masterDays = Object.fromEntries(
+        mockBarbers.map((barber) => [barber.id, mockDay(date, barber.id)]),
+      )
+      return { overview, barbers: mockBarbers, isOwner: true, masterDays }
     }
     if (!import.meta.env.VITE_API_BASE_URL) throw new Error('API base URL is not configured')
     const [overview, list] = await Promise.all([api.day({ date }), api.barbers()])
@@ -152,25 +157,31 @@ export default function App() {
   }, [])
 
   const loadDay = useCallback(async () => {
+    const requestVersion = ++snapshotVersionRef.current
     setLoading(true)
     setFailure(null)
     try {
       const snapshot = await fetchSnapshot()
+      if (requestVersion !== snapshotVersionRef.current) return
       applySnapshot(snapshot)
       const allSlots = snapshot.isOwner ? Object.values(snapshot.masterDays).flatMap((item) => item.slots) : snapshot.overview.slots
       previousBookingsRef.current = { date, ids: confirmedBookingIds(allSlots) }
     } catch (error) {
+      if (requestVersion !== snapshotVersionRef.current) return
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) setFailure('access')
       else setFailure('network')
-    } finally { setLoading(false) }
+    } finally {
+      if (requestVersion === snapshotVersionRef.current) setLoading(false)
+    }
   }, [applySnapshot, date, fetchSnapshot, retryKey])
 
   const pollDay = useCallback(async () => {
     if (mockEnabled || loading || failure || actionBusyRef.current || document.visibilityState === 'hidden' || pollingRef.current) return
     pollingRef.current = true
+    const requestVersion = snapshotVersionRef.current
     try {
       const snapshot = await fetchSnapshot()
-      if (actionBusyRef.current) return
+      if (requestVersion !== snapshotVersionRef.current || actionBusyRef.current) return
       const allSlots = snapshot.isOwner ? Object.values(snapshot.masterDays).flatMap((item) => item.slots) : snapshot.overview.slots
       const previous = previousBookingsRef.current
       const fresh = previous?.date === date ? findNewBookings(previous.ids, allSlots) : []
@@ -187,12 +198,16 @@ export default function App() {
         telegram()?.HapticFeedback?.notificationOccurred('success')
       }
     } catch (error) {
+      if (requestVersion !== snapshotVersionRef.current) return
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) setFailure('access')
       else setFailure('network')
     } finally { pollingRef.current = false }
   }, [applySnapshot, date, failure, fetchSnapshot, lang, loading, showToast, t.newBooking])
 
-  useEffect(() => { void loadDay() }, [loadDay])
+  useEffect(() => {
+    void loadDay()
+    return () => { snapshotVersionRef.current += 1 }
+  }, [loadDay])
   useEffect(() => {
     if (mockEnabled || loading || failure) return
     const interval = window.setInterval(() => { void pollDay() }, 5000)
@@ -212,9 +227,33 @@ export default function App() {
   }, [])
   useEffect(() => {
     if (!sheet) return
-    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape' && !actionBusy) setSheet(null) }
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const dialog = dialogRef.current
+    const focusable = dialog?.querySelectorAll<HTMLElement>(
+      'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])',
+    )
+    focusable?.[0]?.focus()
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !actionBusy) {
+        setSheet(null)
+        return
+      }
+      if (event.key !== 'Tab' || !focusable?.length) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
     window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      if (previousFocus?.isConnected) previousFocus.focus()
+    }
   }, [actionBusy, sheet])
 
   const selectedDay = selectedBarber && selectedBarber !== 'all' ? masterDays[selectedBarber] ?? day : day
@@ -368,25 +407,25 @@ export default function App() {
   return <main className="app-shell schedule-app">
     <header className="topbar"><a className="wordmark" href="#"><span className="brand-mark"><Scissors size={17} /></span>SAVDO<span>AI</span></a><div className="top-actions"><span className="live"><i /> {mockEnabled ? 'DEMO' : 'LIVE'}</span><LanguageSwitch lang={lang} setLang={setLang} /></div></header>
     <section className="welcome schedule-welcome"><p className="overline">{t.eyebrow} <span className="date-label">· {dateLabel(date, lang).toLocaleUpperCase(lang === 'ru' ? 'ru-RU' : 'uz-UZ')}</span></p><h1>{t.title}<br /><em>{mockEnabled ? t.fakeName : selectedName ?? (telegram()?.initDataUnsafe?.user?.first_name ?? '')}</em></h1><p className="welcome-sub">{dayName(date, lang)} · {dateLabel(date, lang)}</p>
-      <div className="date-control"><button className={`date-pill ${date === today ? 'selected' : ''}`} onClick={() => setDate(today)}><CalendarDays size={15} />{t.today}</button><button className={`date-pill ${date === shiftDate(today, 1) ? 'selected' : ''}`} onClick={() => setDate(shiftDate(today, 1))}>{t.tomorrow}</button><label className="date-picker" aria-label={t.chooseDate}><input type="date" value={date} min={today} onChange={(event) => event.target.value && setDate(event.target.value)} /><CalendarDays size={16} /></label></div>
+      <div className="date-control"><button aria-pressed={date === today} className={`date-pill ${date === today ? 'selected' : ''}`} onClick={() => setDate(today)}><CalendarDays size={15} />{t.today}</button><button aria-pressed={date === shiftDate(today, 1)} className={`date-pill ${date === shiftDate(today, 1) ? 'selected' : ''}`} onClick={() => setDate(shiftDate(today, 1))}>{t.tomorrow}</button><label className="date-picker" aria-label={t.chooseDate}><input type="date" value={date} min={today} onChange={(event) => event.target.value && setDate(event.target.value)} /><CalendarDays size={16} /></label></div>
     </section>
-    {isOwner && <nav className="master-switcher" aria-label={t.barber}><button className={`master-chip ${selectedBarber === 'all' ? 'selected' : ''}`} onClick={() => setSelectedBarber('all')}>{t.all}</button>{barbers.map((barber) => <button key={barber.id} className={`master-chip ${selectedBarber === barber.id ? 'selected' : ''}`} onClick={() => setSelectedBarber(barber.id)}><UserRound size={13} />{barber[lang === 'ru' ? 'nameRu' : 'nameUz'] ?? barber.name}</button>)}</nav>}
+    {isOwner && <nav className="master-switcher" aria-label={t.barber}><button aria-pressed={selectedBarber === 'all'} className={`master-chip ${selectedBarber === 'all' ? 'selected' : ''}`} onClick={() => setSelectedBarber('all')}>{t.all}</button>{barbers.map((barber) => <button aria-pressed={selectedBarber === barber.id} key={barber.id} className={`master-chip ${selectedBarber === barber.id ? 'selected' : ''}`} onClick={() => setSelectedBarber(barber.id)}><UserRound size={13} />{barber[lang === 'ru' ? 'nameRu' : 'nameUz'] ?? barber.name}</button>)}</nav>}
     <section className="summary"><article className="summary-card"><span className="summary-icon"><Scissors size={16} /></span><strong>{displayBookings.length}</strong><span>{t.bookings}</span><small><Check size={12} /> {t.discounted}: {discountCount}</small></article><article className="summary-card revenue-card"><span className="summary-icon"><Sparkles size={16} /></span><strong>{formatMoney(revenue, lang)}</strong><span>{t.expected}</span><small className="muted">UZS</small></article></section>
     <section className="schedule-section"><div className="section-heading"><div><p className="overline">{date}</p><h2>{t.schedule}{selectedName ? ` · ${selectedName}` : ''}</h2></div><span className="hours"><Clock3 size={14} /> 10:00 — 21:00</span></div>
       {loading ? <div className="loading-list" aria-label="Loading">{Array.from({ length: 5 }, (_, index) => <div className="skeleton skeleton-slot" key={index} />)}</div> : slots.length ? <div className={`timeline ${showAll ? 'aggregate-timeline' : ''}`}>{showAll ? slots.map((slot) => <AggregateRow key={slot.startTimeIso} slot={slot} barbers={barbers} masterDays={masterDays} highlightedBookings={highlightedBookings} lang={lang} isToday={isToday} now={now} t={t} onFree={() => openBlockSheet(slot, slot.freeBarberIds)} onBooking={openBookingSheet} />) : renderSingleRows()}</div> : <div className="empty-state"><div className="empty-art"><div className="sun-glow" /><div className="empty-icon"><CalendarDays size={25} /></div></div><h3>{t.emptyTitle}</h3><p>{t.emptyText}</p></div>}
     </section>
     <footer><span className="mock-badge"><i /> {mockEnabled ? 'DEMO · MOCK РЕЖИМ' : 'SAVDOAI'}</span><span>ТАШКЕНТ · UTC+5</span></footer>
-    {toast && <div className="toast" role="status"><span>{toast}</span><button aria-label="Close" onClick={() => setToast('')}><X size={15} /></button></div>}
-    {sheet && <div className="sheet-backdrop" onMouseDown={() => !actionBusy && setSheet(null)}><section className="action-sheet" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}><div className="sheet-handle" /><button className="sheet-close" aria-label="Close" onClick={() => !actionBusy && setSheet(null)}><X size={17} /></button>
+    {toast && <div className="toast" role="status"><span>{toast}</span><button aria-label={t.close} onClick={() => setToast('')}><X size={15} /></button></div>}
+    {sheet && <div className="sheet-backdrop" onMouseDown={() => !actionBusy && setSheet(null)}><section ref={dialogRef} className="action-sheet" role="dialog" aria-modal="true" aria-label={sheet.kind === 'block' ? t.blockTitle : sheet.kind === 'unblock' ? t.unblock : t.details} tabIndex={-1} onMouseDown={(event) => event.stopPropagation()}><div className="sheet-handle" /><button className="sheet-close" aria-label={t.close} onClick={() => !actionBusy && setSheet(null)}><X size={17} /></button>
       {sheet.kind === 'block' && <>
         <p className="overline">{sheet.slot.time} · {date}</p><h2>{t.blockTitle}</h2>
         {sheet.barberIds.length > 1 && <label className="field-label">{t.barber}<select value={blockTargetId ?? ''} onChange={(event) => setBlockTargetId(Number(event.target.value))}><option value="">{lang === 'ru' ? 'Выберите мастера' : 'Ustani tanlang'}</option>{sheet.barberIds.map((id) => { const barber = barbers.find((item) => item.id === id); return <option value={id} key={id}>{barber?.[lang === 'ru' ? 'nameRu' : 'nameUz'] ?? barber?.name ?? id}</option> })}</select></label>}
-        <div className="field-label">{t.duration}<div className="choice-row">{[30, 60, 90].map((minutes) => <button key={minutes} className={blockDuration === minutes ? 'choice selected' : 'choice'} onClick={() => setBlockDuration(minutes)}>{minutes} {lang === 'ru' ? 'мин' : 'daq'}</button>)}</div></div>
+        <div className="field-label">{t.duration}<div className="choice-row">{[30, 60, 90].map((minutes) => <button aria-pressed={blockDuration === minutes} key={minutes} className={blockDuration === minutes ? 'choice selected' : 'choice'} onClick={() => setBlockDuration(minutes)}>{minutes} {lang === 'ru' ? 'мин' : 'daq'}</button>)}</div></div>
         <div className="field-label">{t.noteLabel}<input maxLength={120} value={blockNote} placeholder={t.notePlaceholder} onChange={(event) => setBlockNote(event.target.value)} /><div className="quick-row"><button onClick={() => setBlockNote(t.quickLunch)}>{t.quickLunch}</button><button onClick={() => setBlockNote(t.walkin)}>{t.walkin}</button><button onClick={() => setBlockNote(t.shortBreak)}>{t.shortBreak}</button></div></div>
         <button className="primary-action" disabled={actionBusy || blockTargetId === null} onClick={() => void submitBlock()}>{actionBusy ? '…' : t.saveBlock}</button>
       </>}
       {sheet.kind === 'unblock' && <><p className="overline">{bookingTime(sheet.booking)}</p><h2>{t.unblock}</h2><p className="sheet-copy">{sheet.booking.note || t.blocked}{sheet.booking.barber ? ` · ${sheet.booking.barber.name}` : ''}</p><button className="primary-action" disabled={actionBusy} onClick={() => void submitUnblock()}>{actionBusy ? '…' : t.unblock}</button></>}
-      {sheet.kind === 'details' && <><p className="overline">{t.details}</p><h2>{lang === 'ru' ? sheet.booking.service?.nameRu : sheet.booking.service?.nameUz}</h2><div className="details-list"><Detail label={t.client} value={sheet.booking.clientName || '—'} /><Detail label={t.price} value={formatMoney(sheet.booking.finalPrice, lang)} /><Detail label={t.discount} value={`${sheet.booking.discountPercent}%`} /><Detail label={t.barber} value={sheet.booking.barber?.[lang === 'ru' ? 'nameRu' : 'nameUz'] ?? sheet.booking.barber?.name ?? '—'} /><Detail label={lang === 'ru' ? 'Время' : 'Vaqt'} value={bookingTime(sheet.booking)} />{sheet.booking.createdAt && <Detail label={t.created} value={new Intl.DateTimeFormat(lang === 'ru' ? 'ru-RU' : 'uz-UZ', { timeZone: zone, dateStyle: 'medium', timeStyle: 'short' }).format(new Date(sheet.booking.createdAt))} />}{sheet.booking.clientTelegramId && <Detail label={t.telegramId} value={sheet.booking.clientTelegramId} />}{sheet.booking.note && <Detail label={t.noteLabel} value={sheet.booking.note} />}{sheet.booking.clientConfirmedAt && <Detail label={t.confirmed} value={formatTashkentTime(sheet.booking.clientConfirmedAt)} />}</div>
+      {sheet.kind === 'details' && <><p className="overline">{t.details}</p><h2>{lang === 'ru' ? sheet.booking.service?.nameRu : sheet.booking.service?.nameUz}</h2><div className="details-list"><Detail label={t.client} value={sheet.booking.clientName || '—'} /><Detail label={t.phone} value={sheet.booking.clientPhone || t.noPhone} /><Detail label={t.price} value={formatMoney(sheet.booking.finalPrice, lang)} /><Detail label={t.discount} value={`${sheet.booking.discountPercent}%`} /><Detail label={t.barber} value={sheet.booking.barber?.[lang === 'ru' ? 'nameRu' : 'nameUz'] ?? sheet.booking.barber?.name ?? '—'} /><Detail label={lang === 'ru' ? 'Время' : 'Vaqt'} value={bookingTime(sheet.booking)} />{sheet.booking.createdAt && <Detail label={t.created} value={new Intl.DateTimeFormat(lang === 'ru' ? 'ru-RU' : 'uz-UZ', { timeZone: zone, dateStyle: 'medium', timeStyle: 'short' }).format(new Date(sheet.booking.createdAt))} />}{sheet.booking.clientTelegramId && <Detail label={t.telegramId} value={sheet.booking.clientTelegramId} />}{sheet.booking.note && <Detail label={t.noteLabel} value={sheet.booking.note} />}{sheet.booking.clientConfirmedAt && <Detail label={t.confirmed} value={formatTashkentTime(sheet.booking.clientConfirmedAt)} />}</div>
         {sheet.booking.clientPhone ? <a className="call-action" href={`tel:${sheet.booking.clientPhone}`}><Phone size={16} />{t.call}</a> : <p className="sheet-copy">{t.noPhone}</p>}
         {confirmCancel ? <div className="confirm-box"><p>{t.cancelConfirm}</p><button className="danger-action" disabled={actionBusy} onClick={() => void submitCancel()}>{actionBusy ? '…' : t.confirmCancel}</button><button className="secondary-action" onClick={() => setConfirmCancel(false)}>{t.keepBooking}</button></div> : <button className="danger-action" disabled={actionBusy} onClick={() => setConfirmCancel(true)}>{t.cancelBooking}</button>}
       </>}
@@ -399,7 +438,7 @@ function Detail({ label, value }: { label: string; value: string }) {
 }
 
 function LanguageSwitch({ lang, setLang }: { lang: Language; setLang: (lang: Language) => void }) {
-  return <div className="language-switch"><button className={lang === 'ru' ? 'active' : ''} onClick={() => setLang('ru')}>РУ</button><button className={lang === 'uz' ? 'active' : ''} onClick={() => setLang('uz')}>UZ</button></div>
+  return <div className="language-switch"><button aria-pressed={lang === 'ru'} className={lang === 'ru' ? 'active' : ''} onClick={() => setLang('ru')}>РУ</button><button aria-pressed={lang === 'uz'} className={lang === 'uz' ? 'active' : ''} onClick={() => setLang('uz')}>UZ</button></div>
 }
 
 function BookingBlock({ booking, lang, t, highlighted, onClick }: { booking: SlotBookingDto; lang: Language; t: typeof strings.ru; highlighted: boolean; onClick: () => void }) {

@@ -9,7 +9,11 @@ pnpm install
 pnpm dev
 ```
 
-Copy `.env.example` to `.env.local`. Set `VITE_MOCK=true` to run the browser demo; mock mode is guarded by `import.meta.env.DEV` and is disabled in production builds. The demo includes block, unblock, and cancel flows without contacting the backend.
+The checked-in example is a safe browser demo configuration. The workspace's ignored `.env.local` is already configured with `VITE_MOCK=true`, so it runs without Telegram, a backend, or database access. The demo includes block, unblock, and cancel flows. Mock mode is guarded by `import.meta.env.DEV` and is disabled in production builds.
+
+Run `pnpm dev` from this folder, or `./dev.ps1` in PowerShell. Vite listens only on `http://127.0.0.1:5173`.
+
+To connect to a local backend instead, set `VITE_MOCK=false`, set `VITE_API_BASE_URL=http://localhost:3000/api/v1`, and set `VITE_DEV_ADMIN_KEY` to the backend's local-only `ADMIN_KEY`. Keep the backend on a development database; do not point this admin flow at production data. The backend's local `.env` should set `TELEGRAM_ENABLED=false` unless you are using a separate development bot token.
 
 Set `VITE_API_BASE_URL` to the Railway API base (including `/api/v1`) when integrating the backend. `VITE_DEV_ADMIN_KEY` is read only by development API code and must never be set for production.
 

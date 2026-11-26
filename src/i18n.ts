@@ -2,6 +2,8 @@ export type Language = 'ru' | 'uz'
 
 export const strings = {
   ru: {
+    close: '\u0417\u0430\u043A\u0440\u044B\u0442\u044C',
+    phone: '\u0422\u0435\u043B\u0435\u0444\u043E\u043D',
     eyebrow: 'ВАША СМЕНА', title: 'Доброе утро,', fakeName: 'Жасур', today: 'Сегодня', tomorrow: 'Завтра',
     bookings: 'записи', discount: 'со скидкой', revenue: 'выручка', schedule: 'Расписание',
     emptyTitle: 'Пока тихо', emptyText: 'Новые записи появятся здесь автоматически.', badge: 'ДЕМО · MOCK РЕЖИМ',
@@ -19,6 +21,8 @@ export const strings = {
     newBooking: 'Новая запись', noPhone: 'Телефон не указан',
   },
   uz: {
+    close: 'Yopish',
+    phone: 'Telefon raqami',
     eyebrow: 'SIZNING SMENANGIZ', title: 'Xayrli tong,', fakeName: 'Jasur', today: 'Bugun', tomorrow: 'Ertaga',
     bookings: 'yozuv', discount: 'chegirma bilan', revenue: 'tushum', schedule: 'Jadval',
     emptyTitle: 'Hozircha tinch', emptyText: 'Yangi yozuvlar bu yerda avtomatik ko‘rinadi.', badge: 'DEMO · MOCK REJIMI',
